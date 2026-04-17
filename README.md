@@ -74,3 +74,4 @@ UPDATE profiles SET role = 'admin' WHERE id = 'UUID-UZYTKOWNIKA';
 - **Stripe** — Checkout, Webhooks, Refunds
 - **Resend** — Maile transakcyjne PL
 - **Vercel** — Deployment
+"# kuznia-orlika" 
