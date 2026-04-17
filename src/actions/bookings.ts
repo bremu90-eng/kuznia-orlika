@@ -4,21 +4,20 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { calculateDepositAmount } from '@/lib/utils'
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnyRecord = Record<string, any>
-
 export async function createBooking(sessionId: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/logowanie')
 
-  const { data: session } = await supabase
+  const { data: rawSession } = await supabase
     .from('sessions')
     .select('*, class_types (*), trainers (first_name, last_name)')
     .eq('id', sessionId)
     .eq('status', 'scheduled')
-    .single() as { data: AnyRecord | null; error: unknown }
+    .single()
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const session = rawSession as any
   if (!session) return { error: 'Termin nie istnieje lub jest niedostępny.' }
 
   const { data: bookingCounts } = await supabase
@@ -40,9 +39,8 @@ export async function createBooking(sessionId: string) {
 
   if (existing) return { error: 'Masz już rezerwację na te zajęcia.' }
 
-  const ct = session.class_types as AnyRecord
-  const depositPolicy = ct.deposit_policy as 'full_100' | 'partial_25'
-  const depositAmount = calculateDepositAmount(session.price as number, depositPolicy)
+  const depositPolicy = session.class_types.deposit_policy as 'full_100' | 'partial_25'
+  const depositAmount = calculateDepositAmount(session.price, depositPolicy)
 
   const policySnapshot = {
     deposit_policy: depositPolicy,
@@ -58,7 +56,7 @@ export async function createBooking(sessionId: string) {
       session_id: sessionId,
       client_id: user!.id,
       status: 'pending_payment',
-      booking_amount: session.price as number,
+      booking_amount: session.price,
       deposit_amount: depositAmount,
       cancellation_policy_snapshot: policySnapshot,
     })
@@ -68,7 +66,6 @@ export async function createBooking(sessionId: string) {
   if (bookingError || !booking) return { error: 'Błąd tworzenia rezerwacji. Spróbuj ponownie.' }
 
   const { createStripeCheckout } = await import('@/lib/stripe')
-  const t = session.trainers as AnyRecord
 
   const checkoutUrl = await createStripeCheckout({
     bookingId: booking.id,
@@ -76,9 +73,9 @@ export async function createBooking(sessionId: string) {
     userId: user!.id,
     email: user!.email!,
     amount: depositAmount,
-    sessionTitle: ct.name as string,
-    trainerName: `${t.first_name} ${t.last_name}`,
-    startsAt: session.starts_at as string,
+    sessionTitle: session.class_types.name,
+    trainerName: `${session.trainers.first_name} ${session.trainers.last_name}`,
+    startsAt: session.starts_at,
   })
 
   if (!checkoutUrl) {
@@ -94,22 +91,23 @@ export async function cancelBooking(bookingId: string) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Musisz być zalogowany.' }
 
-  const { data: booking } = await supabase
+  const { data: rawBooking } = await supabase
     .from('bookings')
     .select('*, sessions (starts_at)')
     .eq('id', bookingId)
     .eq('client_id', user.id)
-    .single() as { data: AnyRecord | null; error: unknown }
+    .single()
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const booking = rawBooking as any
   if (!booking) return { error: 'Rezerwacja nie istnieje.' }
-  if (!['confirmed', 'pending_payment'].includes(booking.status as string)) {
+  if (!['confirmed', 'pending_payment'].includes(booking.status)) {
     return { error: 'Nie można anulować tej rezerwacji.' }
   }
 
-  const sess = booking.sessions as AnyRecord
-  const hoursUntil = (new Date(sess.starts_at as string).getTime() - Date.now()) / (1000 * 60 * 60)
+  const hoursUntil = (new Date(booking.sessions.starts_at).getTime() - Date.now()) / (1000 * 60 * 60)
   const refundAmount = booking.status === 'confirmed'
-    ? (hoursUntil > 10 ? booking.deposit_amount as number : Math.ceil((booking.deposit_amount as number) * 0.5 * 100) / 100)
+    ? (hoursUntil > 10 ? booking.deposit_amount : Math.ceil(booking.deposit_amount * 0.5 * 100) / 100)
     : 0
 
   await supabase.from('bookings').update({
