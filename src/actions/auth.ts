@@ -54,8 +54,8 @@ export async function login(formData: FormData) {
   }
 
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', data.user.id).single()
-  const role = profile?.role ?? 'client'
-  redirect(role === 'admin' || role === 'trainer' ? '/panel' : '/konto')
+const role = (profile as { role: string } | null)?.role ?? 'client'
+redirect(role === 'admin' || role === 'trainer' ? '/panel' : '/konto')
 }
 
 export async function logout() {
