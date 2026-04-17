@@ -1,0 +1,37 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --brand-black: #0a0a0b;
+    --brand-charcoal: #111113;
+    --brand-graphite: #1c1c20;
+    --brand-copper: #b87333;
+    --brand-copper-light: #d4924a;
+    --brand-text: #f0ece8;
+    --brand-text-secondary: #9a9494;
+    --brand-border: #2e2e34;
+  }
+  html { scroll-behavior: smooth; }
+  body {
+    background-color: var(--brand-black);
+    color: var(--brand-text);
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection { background-color: var(--brand-copper); color: var(--brand-black); }
+  :focus-visible { outline: 2px solid var(--brand-copper); outline-offset: 2px; border-radius: 4px; }
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--brand-charcoal); }
+  ::-webkit-scrollbar-thumb { background: var(--brand-border); border-radius: 3px; }
+}
+
+@layer utilities {
+  .text-gradient-copper {
+    background: linear-gradient(135deg, #e8a86a 0%, #b87333 50%, #9a5e28 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .section-padding { @apply py-16 md:py-24 px-4 md:px-6; }
+}
