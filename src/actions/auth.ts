@@ -34,11 +34,11 @@ export async function register(formData: FormData) {
     return { error: 'Wystąpił błąd podczas rejestracji. Spróbuj ponownie.' }
   }
 
-  if (data.user && (parsed.data.phone || parsed.data.birthDate)) {
+  if (data.user) {
     await supabase.from('profiles').update({
       phone: parsed.data.phone || null,
       birth_date: parsed.data.birthDate || null,
-    }).eq('id', data.user.id)
+    } as { phone: string | null; birth_date: string | null }).eq('id', data.user.id)
   }
 
   return { success: true, email: parsed.data.email }
