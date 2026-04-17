@@ -3,29 +3,30 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { registerSchema, loginSchema } from '@/validations/auth'
 
 export async function register(formData: FormData) {
-  const raw = {
-    firstName: formData.get('firstName') as string,
-    lastName: formData.get('lastName') as string,
-    email: formData.get('email') as string,
-    phone: formData.get('phone') as string,
-    birthDate: formData.get('birthDate') as string,
-    password: formData.get('password') as string,
-  }
+  const firstName = formData.get('firstName') as string
+  const lastName = formData.get('lastName') as string
+  const email = formData.get('email') as string
+  const phone = formData.get('phone') as string
+  const birthDate = formData.get('birthDate') as string
+  const password = formData.get('password') as string
 
-  const parsed = registerSchema.safeParse(raw)
-  if (!parsed.success) return { error: parsed.error.issues[0].message }
+  if (!firstName || !lastName || !email || !password) {
+    return { error: 'Uzupełnij wszystkie wymagane pola.' }
+  }
+  if (password.length < 8) {
+    return { error: 'Hasło musi mieć co najmniej 8 znaków.' }
+  }
 
   const supabase = await createClient()
 
   const { data, error } = await supabase.auth.signUp({
-    email: parsed.data.email,
-    password: parsed.data.password,
+    email,
+    password,
     options: {
       emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/callback`,
-      data: { first_name: parsed.data.firstName, last_name: parsed.data.lastName, role: 'client' },
+      data: { first_name: firstName, last_name: lastName, role: 'client' },
     },
   })
 
@@ -34,25 +35,17 @@ export async function register(formData: FormData) {
     return { error: 'Wystąpił błąd podczas rejestracji. Spróbuj ponownie.' }
   }
 
-  if (data.user) {
-    await supabase.from('profiles').update({
-      phone: parsed.data.phone || null,
-      birth_date: parsed.data.birthDate || null,
-    } as { phone: string | null; birth_date: string | null }).eq('id', data.user.id)
-  }
-
-  return { success: true, email: parsed.data.email }
+  return { success: true, email }
 }
 
 export async function login(formData: FormData) {
-  const parsed = loginSchema.safeParse({
-    email: formData.get('email'),
-    password: formData.get('password'),
-  })
-  if (!parsed.success) return { error: 'Nieprawidłowy e-mail lub hasło.' }
+  const email = formData.get('email') as string
+  const password = formData.get('password') as string
+
+  if (!email || !password) return { error: 'Podaj e-mail i hasło.' }
 
   const supabase = await createClient()
-  const { data, error } = await supabase.auth.signInWithPassword(parsed.data)
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password })
 
   if (error) {
     if (error.code === 'invalid_credentials') return { error: 'Nieprawidłowy e-mail lub hasło.' }
@@ -94,6 +87,6 @@ export async function updatePassword(formData: FormData) {
 
   const supabase = await createClient()
   const { error } = await supabase.auth.updateUser({ password })
-  if (error) return { error: 'Nie udało się zmienić hasła. Spróbuj ponownie.' }
+  if (error) return { error: 'Nie udało się zmienić hasła.' }
   redirect('/konto')
 }
