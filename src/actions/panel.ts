@@ -8,7 +8,9 @@ export async function createSession(formData: FormData) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { error: 'Brak autoryzacji.' }
 
-  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+  const { data: rawProfile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const profile = rawProfile as any
   if (!profile || (profile.role !== 'trainer' && profile.role !== 'admin')) return { error: 'Brak uprawnień.' }
 
   const classTypeId = formData.get('classTypeId') as string
@@ -22,7 +24,9 @@ export async function createSession(formData: FormData) {
     return { error: 'Uzupełnij wszystkie wymagane pola.' }
   }
 
-  const { data: ct } = await supabase.from('class_types').select('duration_minutes').eq('id', classTypeId).single()
+  const { data: rawCt } = await supabase.from('class_types').select('duration_minutes').eq('id', classTypeId).single()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const ct = rawCt as any
   if (!ct) return { error: 'Nie znaleziono typu zajęć.' }
 
   const startsAt = new Date(`${date}T${startTime}:00`)
@@ -32,9 +36,14 @@ export async function createSession(formData: FormData) {
   if (startsAt < new Date()) return { error: 'Termin musi być w przyszłości.' }
 
   const { error } = await supabase.from('sessions').insert({
-    class_type_id: classTypeId, trainer_id: trainerId,
-    starts_at: startsAt.toISOString(), ends_at: endsAt.toISOString(),
-    max_capacity: maxCapacity, price, status: 'scheduled', created_by: user.id,
+    class_type_id: classTypeId,
+    trainer_id: trainerId,
+    starts_at: startsAt.toISOString(),
+    ends_at: endsAt.toISOString(),
+    max_capacity: maxCapacity,
+    price,
+    status: 'scheduled',
+    created_by: user.id,
   })
 
   if (error) return { error: 'Błąd tworzenia terminu.' }
